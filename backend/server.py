@@ -1497,7 +1497,15 @@ async def generate_optimization_recommendations(context_data: Dict[str, Any]):
 
 @api_router.get("/insights/summary", response_model=StandardResponse)
 async def get_insights_summary(days: int = Query(7, ge=1, le=90)):
-    """Get summary of recent insights and analytics"""
+    """
+    Return a summary of recent insights and analytics for the specified time window.
+    
+    Parameters:
+        days (int): Number of days to include in the summary (minimum 1, maximum 90).
+    
+    Returns:
+        StandardResponse: Object with `success`, `message`, and `data` where `data` is the insights summary containing aggregated metrics and recent insight items for the requested period.
+    """
     try:
         summary = await insights_engine.get_insights_summary(days)
         return StandardResponse(
@@ -1516,7 +1524,22 @@ async def get_insights_summary(days: int = Query(7, ge=1, le=90)):
 # Security Management Endpoints
 @api_router.post("/security/users/create", response_model=StandardResponse)
 async def create_user(user_data: Dict[str, Any]):
-    """Create a new user with role-based access control"""
+    """
+    Create a new user and assign role-based access.
+    
+    Parameters:
+        user_data (Dict[str, Any]): Payload for creating the user. Expected keys include
+            username, email, password, and an optional role value indicating the user's
+            role/permissions.
+    
+    Returns:
+        StandardResponse: Object indicating success with a message and `data` containing
+        the created user record or creation details.
+    
+    Raises:
+        HTTPException: Raised with status 400 when the input is invalid or the security
+        manager returns an error; raised with status 500 on unexpected failures.
+    """
     try:
         result = await security_manager.create_user(user_data)
         
@@ -1536,7 +1559,19 @@ async def create_user(user_data: Dict[str, Any]):
 
 @api_router.post("/security/auth/login", response_model=StandardResponse)
 async def login_user(request: Request, credentials: Dict[str, str]):
-    """Authenticate user and generate JWT token"""
+    """
+    Authenticate a user using provided credentials and return a standardized authentication response.
+    
+    Parameters:
+        request (Request): Incoming HTTP request used to capture client IP and user-agent for authentication context.
+        credentials (Dict[str, str]): Dictionary containing "email" and "password" keys.
+    
+    Returns:
+        StandardResponse: Success response containing authentication data (e.g., user information and JWT token) on successful authentication.
+    
+    Raises:
+        HTTPException: Raised with status 401 when credentials are invalid, or with status 500 for internal authentication errors.
+    """
     try:
         email = credentials.get("email", "")
         password = credentials.get("password", "")
@@ -1561,7 +1596,25 @@ async def login_user(request: Request, credentials: Dict[str, str]):
 
 @api_router.post("/security/permissions/validate", response_model=StandardResponse)
 async def validate_permission(validation_data: Dict[str, Any]):
-    """Validate user permission for specific action"""
+    """
+    Validate whether a user has a specific permission for a resource.
+    
+    Parameters:
+        validation_data (Dict[str, Any]): Input dictionary with expected keys:
+            - "user_id" (str): Identifier of the user to validate.
+            - "permission" (str): Permission name (case-insensitive) to check.
+            - "resource" (Any, optional): Resource identifier or context for the permission check.
+    
+    Returns:
+        StandardResponse: Object with `success`, `message`, and `data` containing:
+            - "user_id" (str): The provided user identifier.
+            - "permission" (str): The provided permission string.
+            - "granted" (bool): `true` if the permission is granted, `false` otherwise.
+    
+    Raises:
+        HTTPException: 400 if the provided permission name is invalid.
+        HTTPException: 500 if an internal error occurs during validation.
+    """
     try:
         user_id = validation_data.get("user_id", "")
         permission_str = validation_data.get("permission", "")
@@ -1589,7 +1642,18 @@ async def validate_permission(validation_data: Dict[str, Any]):
 
 @api_router.post("/security/policies/create", response_model=StandardResponse)
 async def create_security_policy(policy_data: Dict[str, Any]):
-    """Create a new security policy"""
+    """
+    Create a security policy from the provided policy definition.
+    
+    Parameters:
+        policy_data (dict): Security policy definition and metadata (e.g., rules, name, scope).
+    
+    Returns:
+        StandardResponse: Success response containing the created policy data.
+    
+    Raises:
+        HTTPException: 400 if the provided data is invalid or creation was rejected; 500 if an internal error occurs.
+    """
     try:
         result = await security_manager.create_security_policy(policy_data)
         
@@ -1609,7 +1673,20 @@ async def create_security_policy(policy_data: Dict[str, Any]):
 
 @api_router.get("/security/compliance/report/{standard}", response_model=StandardResponse)
 async def get_compliance_report(standard: str, tenant_id: Optional[str] = None):
-    """Generate compliance report for specific standard"""
+    """
+    Generate a compliance report for a given compliance standard and optional tenant.
+    
+    Parameters:
+        standard (str): Name of the compliance standard to generate (must match a ComplianceStandard enum member, e.g., "SOC2", "ISO27001").
+        tenant_id (Optional[str]): Optional tenant identifier to scope the report; if omitted, the report is generated at the organization/global level.
+    
+    Returns:
+        StandardResponse: A response object with `success=True` on success and the generated report available in the `data` field.
+    
+    Raises:
+        HTTPException: 400 if `standard` is not a valid ComplianceStandard or if the security manager returns a validation/report error.
+        HTTPException: 500 if an unexpected error occurs while generating the report.
+    """
     try:
         # Convert string to ComplianceStandard enum
         compliance_standard = ComplianceStandard[standard.upper()]
@@ -1633,7 +1710,15 @@ async def get_compliance_report(standard: str, tenant_id: Optional[str] = None):
 # Performance Optimization Endpoints
 @api_router.get("/performance/summary", response_model=StandardResponse)
 async def get_performance_summary(hours: int = Query(24, ge=1, le=168)):
-    """Get performance summary for the specified time period"""
+    """
+    Retrieve aggregated performance metrics for a recent time window.
+    
+    Parameters:
+        hours (int): Time window in hours to summarize metrics (inclusive range 1 to 168).
+    
+    Returns:
+        StandardResponse: Success response containing a dictionary of performance metrics and summary data for the specified window.
+    """
     try:
         summary = await performance_optimizer.get_performance_summary(hours)
         
@@ -1653,7 +1738,19 @@ async def get_performance_summary(hours: int = Query(24, ge=1, le=168)):
 
 @api_router.post("/performance/optimize", response_model=StandardResponse)
 async def optimize_performance(optimization_request: Dict[str, Any]):
-    """Apply performance optimizations"""
+    """
+    Trigger performance optimization routines for a specified target area.
+    
+    Parameters:
+        optimization_request (Dict[str, Any]): Request payload that may include:
+            - "target_area" (str, optional): The subsystem to optimize (e.g., "cpu", "memory", "cache"). Defaults to "all" if omitted.
+    
+    Returns:
+        StandardResponse: A response object containing the optimization result details in `data` and a success message.
+    
+    Raises:
+        HTTPException: If the optimizer reports an error or optimization fails.
+    """
     try:
         target_area = optimization_request.get("target_area", "all")
         result = await performance_optimizer.optimize_performance(target_area)
@@ -1674,7 +1771,15 @@ async def optimize_performance(optimization_request: Dict[str, Any]):
 
 @api_router.get("/performance/auto-scale/recommendations", response_model=StandardResponse)
 async def get_auto_scale_recommendations():
-    """Get auto-scaling recommendations based on current metrics"""
+    """
+    Fetches auto-scaling recommendations derived from current performance metrics.
+    
+    Returns:
+        StandardResponse: A response object with `success=True`, a human-readable message, and `data` containing the recommendations dictionary.
+    
+    Raises:
+        HTTPException: Raised with status 500 if the recommendations service returns an error or if retrieval fails.
+    """
     try:
         recommendations = await performance_optimizer.auto_scale_recommendation()
         
@@ -1694,7 +1799,15 @@ async def get_auto_scale_recommendations():
 
 @api_router.get("/performance/cache/stats", response_model=StandardResponse)
 async def get_cache_stats():
-    """Get cache performance statistics"""
+    """
+    Retrieve cache performance statistics.
+    
+    Returns:
+        StandardResponse: A response object with `data` containing cache metrics and `message` set to a success message.
+    
+    Raises:
+        HTTPException: If retrieving cache statistics fails.
+    """
     try:
         stats = performance_optimizer.cache_manager.get_stats()
         
@@ -1710,7 +1823,21 @@ async def get_cache_stats():
 # CRM Integration Endpoints
 @api_router.post("/integrations/crm/setup", response_model=StandardResponse)
 async def setup_crm_integration(setup_data: Dict[str, Any]):
-    """Setup CRM integration for a tenant"""
+    """
+    Configures a CRM integration for a tenant using the specified provider and credentials.
+    
+    Parameters:
+        setup_data (dict): Configuration containing:
+            - provider (str): CRM provider name (e.g., "salesforce", "hubspot").
+            - credentials (dict): Provider-specific authentication details.
+            - tenant_id (str, optional): Tenant identifier to associate the integration with.
+    
+    Returns:
+        StandardResponse: Success response containing integration result data.
+    
+    Raises:
+        HTTPException: 400 if the provider is invalid or the integration setup returns an error; 500 for unexpected failures during setup.
+    """
     try:
         provider_str = setup_data.get("provider", "")
         credentials = setup_data.get("credentials", {})
@@ -1737,7 +1864,20 @@ async def setup_crm_integration(setup_data: Dict[str, Any]):
 
 @api_router.post("/integrations/crm/{integration_id}/sync-contacts", response_model=StandardResponse)
 async def sync_crm_contacts(integration_id: str, sync_request: Dict[str, Any]):
-    """Sync contacts between NOWHERE platform and CRM"""
+    """
+    Synchronize contacts between the NOWHERE platform and a connected CRM integration.
+    
+    Parameters:
+        integration_id (str): Identifier of the CRM integration to sync with.
+        sync_request (dict): Sync options; recognized key:
+            - direction (str): Sync direction, one of "inbound", "outbound", or "bidirectional" (default "bidirectional").
+    
+    Returns:
+        StandardResponse: Success response containing the CRM sync result in `data`.
+    
+    Raises:
+        HTTPException: 400 if the CRM manager returns an error; 500 for unexpected failures during synchronization.
+    """
     try:
         direction = sync_request.get("direction", "bidirectional")
         
@@ -1757,7 +1897,19 @@ async def sync_crm_contacts(integration_id: str, sync_request: Dict[str, Any]):
 
 @api_router.post("/integrations/crm/{integration_id}/create-lead", response_model=StandardResponse)
 async def create_crm_lead(integration_id: str, lead_data: Dict[str, Any]):
-    """Create a lead in the connected CRM system"""
+    """
+    Create a lead in the configured CRM integration and return the operation result.
+    
+    Parameters:
+        integration_id (str): Identifier of the CRM integration to use.
+        lead_data (Dict[str, Any]): Lead details to create in the CRM (provider-specific fields).
+    
+    Returns:
+        StandardResponse: Structured response containing the created lead data on success.
+    
+    Raises:
+        HTTPException: Raised with status 400 if the CRM reports a validation/error response, or 500 for unexpected failures.
+    """
     try:
         result = await crm_manager.create_lead_in_crm(integration_id, lead_data)
         
@@ -1775,7 +1927,18 @@ async def create_crm_lead(integration_id: str, lead_data: Dict[str, Any]):
 
 @api_router.get("/integrations/crm/{integration_id}/analytics", response_model=StandardResponse)
 async def get_crm_analytics(integration_id: str):
-    """Get analytics data from CRM"""
+    """
+    Fetch analytics data for the specified CRM integration.
+    
+    Parameters:
+        integration_id (str): Identifier of the CRM integration to query.
+    
+    Returns:
+        StandardResponse: A response object containing the retrieved CRM analytics data on success.
+    
+    Raises:
+        HTTPException: Raised with status 400 if the CRM manager returns an error, or 500 on internal failure.
+    """
     try:
         result = await crm_manager.get_crm_analytics(integration_id)
         
@@ -1793,7 +1956,19 @@ async def get_crm_analytics(integration_id: str):
 
 @api_router.post("/integrations/crm/webhook/{integration_id}", response_model=StandardResponse)
 async def handle_crm_webhook(integration_id: str, webhook_data: Dict[str, Any]):
-    """Handle incoming CRM webhook"""
+    """
+    Process an incoming CRM webhook for the specified CRM integration and return a standardized result.
+    
+    Parameters:
+        integration_id (str): Identifier of the CRM integration that should handle the webhook.
+        webhook_data (Dict[str, Any]): Raw webhook payload received from the CRM provider.
+    
+    Returns:
+        StandardResponse: Contains `success` boolean, a `message`, and `data` with the processing result.
+    
+    Raises:
+        HTTPException: With status 400 if the webhook data is invalid or the CRM manager returns an error; with status 500 for unexpected processing failures.
+    """
     try:
         result = await crm_manager.handle_crm_webhook(integration_id, webhook_data)
         
@@ -1816,7 +1991,15 @@ async def handle_crm_webhook(integration_id: str, webhook_data: Dict[str, Any]):
 # Stripe Payment Endpoints
 @api_router.get("/integrations/payments/packages", response_model=StandardResponse)
 async def get_payment_packages():
-    """Get available payment packages"""
+    """
+    Retrieve configured payment package definitions from the Stripe integration.
+    
+    Returns:
+        StandardResponse: A response object with `data["packages"]` containing the available payment package definitions.
+    
+    Raises:
+        HTTPException: Raised with status code 500 if packages cannot be retrieved.
+    """
     try:
         packages = stripe_integration.PACKAGES
         return StandardResponse(
@@ -1830,7 +2013,24 @@ async def get_payment_packages():
 
 @api_router.post("/integrations/payments/create-session", response_model=StandardResponse)
 async def create_payment_session(request: Request, payment_data: Dict[str, Any]):
-    """Create Stripe checkout session"""
+    """
+    Create a Stripe checkout session for a payment package.
+    
+    Expects payment_data to include:
+    - "package_id": identifier of the payment package to create a session for.
+    - "host_url" (optional): base URL used for success/cancel redirects; if omitted, derived from the request.
+    - "metadata" (optional): dictionary of metadata to attach to the Stripe session.
+    
+    Parameters:
+        request (Request): Incoming HTTP request (used to derive host URL when needed).
+        payment_data (Dict[str, Any]): Payload containing package_id and optional host_url and metadata.
+    
+    Returns:
+        StandardResponse: Success response containing the created checkout session data (e.g., session id and checkout URL) when the session is created.
+    
+    Raises:
+        HTTPException: with status 400 if Stripe integration returns a validation or creation error; with status 500 for unexpected failures.
+    """
     try:
         package_id = payment_data.get("package_id")
         host_url = payment_data.get("host_url") or str(request.base_url).rstrip("/")
@@ -1854,7 +2054,18 @@ async def create_payment_session(request: Request, payment_data: Dict[str, Any])
 
 @api_router.get("/integrations/payments/status/{session_id}", response_model=StandardResponse)
 async def get_payment_status(session_id: str):
-    """Get payment session status"""
+    """
+    Retrieve the Stripe payment session status.
+    
+    Parameters:
+        session_id (str): Stripe payment session identifier.
+    
+    Returns:
+        StandardResponse: On success, contains `success=True`, a confirmation `message`, and `data` with the payment status details.
+    
+    Raises:
+        HTTPException: With status 400 if the Stripe integration reports an error; with status 500 for unexpected failures.
+    """
     try:
         result = await stripe_integration.get_status(session_id)
         
@@ -1875,7 +2086,18 @@ async def get_payment_status(session_id: str):
 # Twilio SMS Endpoints
 @api_router.post("/integrations/sms/send-otp", response_model=StandardResponse)
 async def send_sms_otp(otp_request: Dict[str, Any]):
-    """Send OTP via SMS"""
+    """
+    Send a one-time password (OTP) to the specified phone number via SMS.
+    
+    Parameters:
+        otp_request (dict): Request payload that must include the key `"phone_number"` with the recipient's E.164-formatted phone number.
+    
+    Returns:
+        StandardResponse: Contains `success` status, a human-readable `message`, and `data` with the Twilio integration result.
+    
+    Raises:
+        HTTPException: If `phone_number` is missing, if the Twilio integration returns an error, or on unexpected failures.
+    """
     try:
         phone_number = otp_request.get("phone_number")
         if not phone_number:
@@ -1899,7 +2121,20 @@ async def send_sms_otp(otp_request: Dict[str, Any]):
 
 @api_router.post("/integrations/sms/verify-otp", response_model=StandardResponse)
 async def verify_sms_otp(verification_data: Dict[str, Any]):
-    """Verify OTP"""
+    """
+    Verify a one-time password (OTP) for a phone number.
+    
+    Parameters:
+        verification_data (dict): Dictionary containing:
+            - "phone_number" (str): Phone number to verify (expected as string).
+            - "code" (str): OTP code to validate.
+    
+    Returns:
+        StandardResponse: Response object with `success` flag, `message`, and `data` containing the verification result.
+    
+    Raises:
+        HTTPException: 400 if required fields are missing; 500 if verification fails or an internal error occurs.
+    """
     try:
         phone_number = verification_data.get("phone_number")
         code = verification_data.get("code")
@@ -1922,7 +2157,20 @@ async def verify_sms_otp(verification_data: Dict[str, Any]):
 
 @api_router.post("/integrations/sms/send", response_model=StandardResponse)
 async def send_sms(sms_data: Dict[str, Any]):
-    """Send SMS message"""
+    """
+    Send an SMS message using the configured Twilio integration.
+    
+    Parameters:
+        sms_data (Dict[str, Any]): Payload containing:
+            - to_number (str): Destination phone number in E.164 or supported format.
+            - message (str): Text content to send.
+    
+    Returns:
+        StandardResponse: Success response with a `data` field containing the underlying Twilio integration result (`result`) when the message is sent.
+    
+    Raises:
+        HTTPException: 400 if `to_number` or `message` is missing or if the Twilio integration returns an error; 500 for unexpected internal failures.
+    """
     try:
         to_number = sms_data.get("to_number")
         message = sms_data.get("message")
@@ -1949,7 +2197,22 @@ async def send_sms(sms_data: Dict[str, Any]):
 # SendGrid Email Endpoints
 @api_router.post("/integrations/email/send", response_model=StandardResponse)
 async def send_email(email_data: Dict[str, Any]):
-    """Send email via SendGrid"""
+    """
+    Send an email using the configured SendGrid integration.
+    
+    Parameters:
+        email_data (dict): Payload containing email fields:
+            - to_email (str): Recipient email address (required).
+            - subject (str): Email subject (required).
+            - html_content (str): HTML body of the email (required).
+            - plain_text (str): Optional plain-text body.
+    
+    Returns:
+        StandardResponse: Response object with `success`, `message`, and `data` where `data` contains the SendGrid integration response.
+    
+    Raises:
+        HTTPException: If required fields are missing (400), if the SendGrid integration returns an error (400), or on internal failures (500).
+    """
     try:
         to_email = email_data.get("to_email")
         subject = email_data.get("subject")
@@ -1977,7 +2240,21 @@ async def send_email(email_data: Dict[str, Any]):
 
 @api_router.post("/integrations/email/send-notification", response_model=StandardResponse)
 async def send_email_notification(notification_data: Dict[str, Any]):
-    """Send notification email"""
+    """
+    Send a templated notification email to a recipient using the configured SendGrid integration.
+    
+    Parameters:
+        notification_data (Dict[str, Any]): A mapping containing notification parameters:
+            - to_email (str): Recipient email address (required).
+            - type (str): Notification template/type identifier (optional, defaults to "welcome").
+            - data (Dict[str, Any]): Template variables to render into the notification (optional).
+    
+    Returns:
+        StandardResponse: Success response containing the integration result under `data`.
+    
+    Raises:
+        HTTPException: If `to_email` is missing, the integration returns an error, or sending fails.
+    """
     try:
         to_email = notification_data.get("to_email")
         notification_type = notification_data.get("type", "welcome")
@@ -2005,7 +2282,15 @@ async def send_email_notification(notification_data: Dict[str, Any]):
 # Voice AI Endpoints
 @api_router.post("/integrations/voice-ai/session", response_model=StandardResponse)
 async def create_voice_ai_session():
-    """Create Voice AI session"""
+    """
+    Create a new Voice AI session and return the created session information.
+    
+    Returns:
+        StandardResponse: Contains a success flag, a message, and `data` with the created voice session information.
+    
+    Raises:
+        HTTPException: 400 if the Voice AI integration returns an error; 500 if session creation fails due to an internal error.
+    """
     try:
         result = await voice_ai_integration.create_voice_session()
         
@@ -2025,7 +2310,12 @@ async def create_voice_ai_session():
 
 @api_router.get("/integrations/voice-ai/info", response_model=StandardResponse)
 async def get_voice_ai_info():
-    """Get Voice AI integration information"""
+    """
+    Retrieve configured Voice AI integration details.
+    
+    Returns:
+        StandardResponse: A response object with `success` set to `True` on success, `message` describing the outcome, and `data` containing the Voice AI integration information.
+    """
     try:
         info = voice_ai_integration.get_integration_info()
         return StandardResponse(
@@ -2040,7 +2330,21 @@ async def get_voice_ai_info():
 # Vision AI Endpoints
 @api_router.post("/integrations/vision-ai/analyze", response_model=StandardResponse)
 async def analyze_image_vision_ai(analysis_data: Dict[str, Any]):
-    """Analyze image using Vision AI"""
+    """
+    Perform image analysis via the Vision AI integration and return a structured analysis result.
+    
+    Parameters:
+        analysis_data (dict): Input payload containing:
+            - image_data (str): Required image content (e.g., base64 string or URL).
+            - prompt (str, optional): Instructional prompt for the analyzer. Defaults to a detailed description request.
+            - image_type (str, optional): Format of `image_data` (e.g., "base64", "url"). Defaults to "base64".
+    
+    Returns:
+        StandardResponse: Success response with `data` containing the analysis output from the Vision AI integration.
+    
+    Raises:
+        HTTPException: Raised with status 400 when `image_data` is missing or the integration returns an error; raised with status 500 on unexpected failures.
+    """
     try:
         image_data = analysis_data.get("image_data")
         prompt = analysis_data.get("prompt", "Analyze this image and describe what you see in detail.")
@@ -2067,7 +2371,15 @@ async def analyze_image_vision_ai(analysis_data: Dict[str, Any]):
 
 @api_router.get("/integrations/vision-ai/formats", response_model=StandardResponse)
 async def get_vision_ai_formats():
-    """Get supported image formats for Vision AI"""
+    """
+    Retrieve the list of image formats supported by the Vision AI integration.
+    
+    Returns:
+        StandardResponse: A response object with `data` set to a list of supported image format strings (e.g., "png", "jpeg") and `success` indicating retrieval status.
+    
+    Raises:
+        HTTPException: If supported formats cannot be retrieved.
+    """
     try:
         formats = vision_ai_integration.get_supported_formats()
         return StandardResponse(
@@ -2085,7 +2397,11 @@ app.include_router(api_router)
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database connection and agent orchestrator on startup"""
+    """
+    Perform application startup initialization of core subsystems.
+    
+    Initializes the database connection, the agent orchestrator, the inter-agent communication system (wiring it to the orchestrator), and the performance optimization subsystem, and logs startup progress.
+    """
     await connect_to_db()
     
     # Initialize agent orchestrator
@@ -2105,7 +2421,11 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Close database connection and shutdown all systems"""
+    """
+    Shuts down system components and closes the database connection.
+    
+    Stops inter-agent communication, shuts down the orchestrator and performance optimizer, and closes the database connection before logging shutdown completion.
+    """
     await inter_agent_comm.stop()
     await orchestrator.shutdown()
     await performance_optimizer.shutdown()
