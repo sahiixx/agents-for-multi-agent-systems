@@ -98,6 +98,20 @@ class SecurityManager:
     """
     
     def __init__(self):
+        """
+        Initialize the SecurityManager instance and its runtime configuration.
+        
+        Sets up:
+        - ai_service: AIService client used for analysis and insights.
+        - config: security settings including JWT secret and expiry, login attempt limits and lockout duration, password minimum length, session timeout, and tiered API rate limits.
+        - role_permissions: mapping of UserRole to allowed Permission values for RBAC enforcement.
+        - security_policies: in-memory store for SecurityPolicy objects.
+        - active_sessions: in-memory session store keyed by session ID.
+        - failed_attempts: in-memory tracking of failed authentication attempts for rate limiting.
+        - compliance_requirements: baseline controls and timelines for supported compliance standards (SOC2_TYPE2, GDPR, UAE_DPA).
+        
+        Logs an initialization message to the configured logger.
+        """
         self.ai_service = AIService()
         
         # Security configuration
@@ -173,7 +187,17 @@ class SecurityManager:
         logger.info("Enterprise Security Manager initialized")
     
     def _get_role_permissions(self, role_str: str) -> List[Permission]:
-        """Get permissions for a role string"""
+        """
+        Retrieve the permissions associated with a role identifier.
+        
+        Accepts either a UserRole enum member or a string matching a UserRole.value. If the input does not match a known role or an error occurs, permissions for UserRole.VIEWER are returned.
+        
+        Parameters:
+            role_str (str | UserRole): Role name (string matching a UserRole value) or a UserRole member.
+        
+        Returns:
+            List[Permission]: The list of Permission values configured for the resolved role (defaults to the VIEWER role's permissions on unknown input or error).
+        """
         try:
             # Try to convert string to UserRole enum
             if isinstance(role_str, str):
@@ -189,7 +213,27 @@ class SecurityManager:
             return self.role_permissions.get(UserRole.VIEWER, [])
     
     async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new user with security validation"""
+        """
+        Create a new user record after validating password strength, hashing the password, assigning role permissions, persisting the user to the database, and emitting an audit event.
+        
+        Parameters:
+            user_data (Dict[str, Any]): Input data for the new user. Expected keys:
+                - email (str): User email address.
+                - name (str): User full name.
+                - password (str): Plaintext password to validate and hash.
+                - role (str, optional): Role name; defaults to viewer role if omitted.
+                - tenant_id (str, optional): Tenant identifier for the user.
+                - ip_address (str, optional): IP address for audit logging.
+                - user_agent (str, optional): User agent string for audit logging.
+        
+        Returns:
+            Dict[str, Any]: On success, a dictionary with keys:
+                - user_id (str): Generated user identifier.
+                - email (str): Normalized (lowercased) email.
+                - role (str): Assigned role.
+                - permissions (List[str]): Permissions assigned to the user.
+            On failure, a dictionary with an `error` key describing the problem (e.g., password validation failure or creation error).
+        """
         try:
             # Validate password strength
             password = user_data.get('password', '')

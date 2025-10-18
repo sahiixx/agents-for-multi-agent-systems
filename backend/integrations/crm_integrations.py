@@ -277,7 +277,21 @@ class CRMIntegrationManager:
     # Private methods for CRM-specific implementations
     
     async def _test_connection(self, provider: CRMProvider, credentials: Dict[str, Any]) -> Dict[str, Any]:
-        """Test connection to CRM provider"""
+        """
+        Validate credentials and connectivity for a given CRM provider and report available features.
+        
+        If credentials contain an access token beginning with "test_token_", the function returns a simulated success with provider-specific features without making network requests. For real credentials, the function attempts provider-specific checks (e.g., HubSpot and Pipedrive HTTP calls) and returns provider-specific feature lists on success.
+        
+        Parameters:
+            provider (CRMProvider): The CRM provider to test.
+            credentials (Dict[str, Any]): Authentication details; typically includes `access_token` or `api_token`.
+        
+        Returns:
+            Dict[str, Any]: A dictionary with:
+                - `success` (bool): True if the connection was validated, False otherwise.
+                - `features` (List[str], optional): Available feature identifiers when `success` is True.
+                - `error` (str, optional): Error message when `success` is False.
+        """
         try:
             # Check if this is a test token (for testing purposes)
             access_token = credentials.get('access_token', '')
@@ -470,7 +484,21 @@ class CRMIntegrationManager:
         return base_format
     
     async def _create_crm_lead(self, provider: CRMProvider, credentials: Dict[str, Any], lead_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create lead in specific CRM"""
+        """
+        Create a lead record in the specified CRM provider.
+        
+        Parameters:
+            provider (CRMProvider): Target CRM provider enum value.
+            credentials (Dict[str, Any]): Authentication credentials required by the provider (e.g., access_token or api_token).
+            lead_data (Dict[str, Any]): Provider-formatted lead payload to send to the CRM.
+        
+        Returns:
+            Dict[str, Any]: Result object containing:
+                - `success` (bool): `True` if the lead was created, `False` otherwise.
+                - `lead_id` (str): Identifier of the created lead when `success` is `True`.
+                - `url` (str): Direct URL to the created lead when available.
+                - `error` (str): Error message when `success` is `False`.
+        """
         try:
             # Check if this is a test token (for testing purposes)
             access_token = credentials.get('access_token', '')

@@ -194,7 +194,11 @@ class TestTwilioIntegration:
     
     @pytest.mark.asyncio
     async def test_verify_otp_test_mode_wrong_code(self):
-        """Test OTP verification in test mode with wrong code"""
+        """
+        Verify that OTP verification returns invalid when running in test mode with an incorrect code.
+        
+        Asserts that the verification result has `valid` set to `False` and `test_mode` set to `True`.
+        """
         integration = TwilioIntegration()
         integration.client = None
         

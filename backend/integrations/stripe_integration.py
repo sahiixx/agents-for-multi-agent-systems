@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 class StripeIntegration:
     def __init__(self):
+        """
+        Initialize the StripeIntegration instance with configuration and available payment packages.
+        
+        Reads the STRIPE_API_KEY environment variable (falls back to "sk_test_emergent"), sets up the placeholder for the StripeCheckout client, and defines the available payment packages in `PACKAGES` where each package maps to an `amount` (in AED), `currency`, and human-readable `name`.
+        """
         self.api_key = os.getenv("STRIPE_API_KEY", "sk_test_emergent")
         self.stripe_checkout = None
         
@@ -28,9 +33,30 @@ class StripeIntegration:
         }
     
     def initialize(self, webhook_url: str):
+        """
+        Initialize the internal Stripe checkout client using the integration's API key and the provided webhook endpoint.
+        
+        Parameters:
+            webhook_url (str): Public URL where Stripe will send webhook event callbacks.
+        """
         self.stripe_checkout = StripeCheckout(api_key=self.api_key, webhook_url=webhook_url)
     
     async def create_session(self, package_id: str, host_url: str, metadata: Optional[Dict] = None):
+        """
+        Create a Stripe checkout session for a specified package and return the session details or an error.
+        
+        Parameters:
+            package_id (str): Identifier of the package to purchase; must exist in the integration's PACKAGES registry.
+            host_url (str): Base URL of the host application used to build success, cancel, and webhook callback URLs.
+            metadata (Optional[Dict]): Optional metadata to attach to the checkout session; if omitted, defaults to {"package_id": package_id}.
+        
+        Returns:
+            dict: On success, a dictionary with keys:
+                - "url": the checkout URL to redirect the user to
+                - "session_id": the Stripe checkout session identifier
+                - "package": the package details from PACKAGES
+              On failure, a dictionary with key "error" containing an error message.
+        """
         try:
             if not self.stripe_checkout:
                 self.initialize(f"{host_url}/api/integrations/payments/webhook")
@@ -54,6 +80,20 @@ class StripeIntegration:
             return {"error": str(e)}
     
     async def get_status(self, session_id: str):
+        """
+        Retrieve the checkout session status for a given Stripe session ID.
+        
+        Parameters:
+            session_id (str): The Stripe Checkout session identifier.
+        
+        Returns:
+            dict: On success, a dictionary with keys:
+                - "status": checkout status string
+                - "payment_status": payment status string
+                - "amount_total": total amount (numeric)
+                - "currency": currency code string
+            On failure, a dictionary with a single key "error" containing the error message.
+        """
         try:
             status = await self.stripe_checkout.get_checkout_status(session_id)
             return {

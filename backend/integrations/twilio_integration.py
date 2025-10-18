@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 
 class TwilioIntegration:
     def __init__(self):
+        """
+        Initialize the TwilioIntegration by reading environment configuration and creating a Twilio client when credentials are present.
+        
+        Reads the environment variables TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE and stores them on the instance as `account_sid`, `auth_token`, and `verify_service_sid`. If both account SID and auth token are available, initializes `client` with a Twilio Client instance; otherwise `client` is set to `None`.
+        """
         self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
         self.verify_service_sid = os.getenv("TWILIO_VERIFY_SERVICE")
@@ -19,6 +24,17 @@ class TwilioIntegration:
             self.client = Client(self.account_sid, self.auth_token)
     
     async def send_otp(self, phone_number: str) -> Dict[str, Any]:
+        """
+        Send an OTP (one-time password) to a phone number via Twilio Verify using SMS.
+        
+        Parameters:
+            phone_number (str): The E.164-formatted phone number to receive the OTP.
+        
+        Returns:
+            dict: On success, {"status": <verification status>, "to": <phone_number>}.
+                  If Twilio is not configured, {"error": "Twilio not configured", "test_mode": True}.
+                  On failure, {"error": <error message string>}.
+        """
         try:
             if not self.client or not self.verify_service_sid:
                 return {"error": "Twilio not configured", "test_mode": True}
@@ -33,6 +49,14 @@ class TwilioIntegration:
             return {"error": str(e)}
     
     async def verify_otp(self, phone_number: str, code: str) -> Dict[str, Any]:
+        """
+        Verify an OTP code for a phone number using Twilio Verify, falling back to a local test mode when Twilio is not configured.
+        
+        Returns:
+            When Twilio is configured: a dict {"valid": bool, "status": str} where `valid` is `True` if the verification status equals "approved" and `status` is the verification status from Twilio.
+            When Twilio is not configured: {"valid": bool, "test_mode": True} where `valid` is `True` only if `code == "123456"`.
+            On error: {"error": str} with the error message.
+        """
         try:
             if not self.client or not self.verify_service_sid:
                 return {"valid": code == "123456", "test_mode": True}
@@ -47,6 +71,21 @@ class TwilioIntegration:
             return {"error": str(e)}
     
     async def send_sms(self, to_number: str, message: str, from_number: str = None) -> Dict[str, Any]:
+        """
+        Send an SMS message to a phone number using the configured Twilio client.
+        
+        Parameters:
+            to_number (str): Destination phone number in E.164 or other Twilio-accepted format.
+            message (str): Message body to send.
+            from_number (str, optional): Sender phone number to use. If omitted, the environment variable
+                TWILIO_PHONE_NUMBER will be used as the sender.
+        
+        Returns:
+            dict: On success, returns {"sid": <message SID>, "status": <message status>}.
+                  If Twilio is not configured, returns {"error": "Twilio not configured", "test_mode": True}.
+                  If no sender number is available, returns {"error": "No Twilio phone number configured"}.
+                  On failure, returns {"error": "<error message>"}.
+        """
         try:
             if not self.client:
                 return {"error": "Twilio not configured", "test_mode": True}
