@@ -33,6 +33,18 @@ from core.white_label_manager import white_label_manager, TenantConfig
 from core.inter_agent_communication import inter_agent_comm, AgentMessage, MessageType
 from core.insights_engine import insights_engine, InsightType
 
+# Import Phase 5 components (Enterprise Security & Performance)
+from core.security_manager import security_manager, UserRole, Permission, ComplianceStandard
+from core.performance_optimizer import performance_optimizer, MetricType, PerformanceMetric
+from integrations.crm_integrations import crm_manager, CRMProvider
+
+# Import Phase 5B-D integrations (Payments, Communication, AI)
+from integrations.stripe_integration import stripe_integration
+from integrations.twilio_integration import twilio_integration
+from integrations.sendgrid_integration import sendgrid_integration
+from integrations.voice_ai_integration import voice_ai_integration
+from integrations.vision_ai_integration import vision_ai_integration
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -1497,6 +1509,576 @@ async def get_insights_summary(days: int = Query(7, ge=1, le=90)):
         logger.error(f"Error getting insights summary: {e}")
         raise HTTPException(status_code=500, detail="Failed to get insights summary")
 
+# ==========================================
+# PHASE 5: ENTERPRISE SECURITY & PERFORMANCE
+# ==========================================
+
+# Security Management Endpoints
+@api_router.post("/security/users/create", response_model=StandardResponse)
+async def create_user(user_data: Dict[str, Any]):
+    """Create a new user with role-based access control"""
+    try:
+        result = await security_manager.create_user(user_data)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="User created successfully",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create user")
+
+@api_router.post("/security/auth/login", response_model=StandardResponse)
+async def login_user(request: Request, credentials: Dict[str, str]):
+    """Authenticate user and generate JWT token"""
+    try:
+        email = credentials.get("email", "")
+        password = credentials.get("password", "")
+        ip_address = request.client.host
+        user_agent = request.headers.get("user-agent", "unknown")
+        
+        result = await security_manager.authenticate_user(email, password, ip_address, user_agent)
+        
+        if "error" in result:
+            raise HTTPException(status_code=401, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Authentication successful",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during authentication: {e}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+@api_router.post("/security/permissions/validate", response_model=StandardResponse)
+async def validate_permission(validation_data: Dict[str, Any]):
+    """Validate user permission for specific action"""
+    try:
+        user_id = validation_data.get("user_id", "")
+        permission_str = validation_data.get("permission", "")
+        resource = validation_data.get("resource")
+        
+        # Convert string to Permission enum
+        permission = Permission[permission_str.upper()]
+        
+        has_permission = await security_manager.validate_permission(user_id, permission, resource)
+        
+        return StandardResponse(
+            success=True,
+            message="Permission validation completed",
+            data={
+                "user_id": user_id,
+                "permission": permission_str,
+                "granted": has_permission
+            }
+        )
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid permission type")
+    except Exception as e:
+        logger.error(f"Error validating permission: {e}")
+        raise HTTPException(status_code=500, detail="Permission validation failed")
+
+@api_router.post("/security/policies/create", response_model=StandardResponse)
+async def create_security_policy(policy_data: Dict[str, Any]):
+    """Create a new security policy"""
+    try:
+        result = await security_manager.create_security_policy(policy_data)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Security policy created successfully",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating security policy: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create security policy")
+
+@api_router.get("/security/compliance/report/{standard}", response_model=StandardResponse)
+async def get_compliance_report(standard: str, tenant_id: Optional[str] = None):
+    """Generate compliance report for specific standard"""
+    try:
+        # Convert string to ComplianceStandard enum
+        compliance_standard = ComplianceStandard[standard.upper()]
+        
+        report = await security_manager.generate_compliance_report(compliance_standard, tenant_id)
+        
+        if "error" in report:
+            raise HTTPException(status_code=400, detail=report["error"])
+        
+        return StandardResponse(
+            success=True,
+            message=f"Compliance report generated for {standard}",
+            data=report
+        )
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid compliance standard")
+    except Exception as e:
+        logger.error(f"Error generating compliance report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate compliance report")
+
+# Performance Optimization Endpoints
+@api_router.get("/performance/summary", response_model=StandardResponse)
+async def get_performance_summary(hours: int = Query(24, ge=1, le=168)):
+    """Get performance summary for the specified time period"""
+    try:
+        summary = await performance_optimizer.get_performance_summary(hours)
+        
+        if "error" in summary:
+            raise HTTPException(status_code=500, detail=summary["error"])
+        
+        return StandardResponse(
+            success=True,
+            message=f"Performance summary retrieved for {hours} hours",
+            data=summary
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting performance summary: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get performance summary")
+
+@api_router.post("/performance/optimize", response_model=StandardResponse)
+async def optimize_performance(optimization_request: Dict[str, Any]):
+    """Apply performance optimizations"""
+    try:
+        target_area = optimization_request.get("target_area", "all")
+        result = await performance_optimizer.optimize_performance(target_area)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Performance optimizations applied",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing performance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to optimize performance")
+
+@api_router.get("/performance/auto-scale/recommendations", response_model=StandardResponse)
+async def get_auto_scale_recommendations():
+    """Get auto-scaling recommendations based on current metrics"""
+    try:
+        recommendations = await performance_optimizer.auto_scale_recommendation()
+        
+        if "error" in recommendations:
+            raise HTTPException(status_code=500, detail=recommendations["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Auto-scaling recommendations generated",
+            data=recommendations
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting auto-scale recommendations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recommendations")
+
+@api_router.get("/performance/cache/stats", response_model=StandardResponse)
+async def get_cache_stats():
+    """Get cache performance statistics"""
+    try:
+        stats = performance_optimizer.cache_manager.get_stats()
+        
+        return StandardResponse(
+            success=True,
+            message="Cache statistics retrieved",
+            data=stats
+        )
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get cache statistics")
+
+# CRM Integration Endpoints
+@api_router.post("/integrations/crm/setup", response_model=StandardResponse)
+async def setup_crm_integration(setup_data: Dict[str, Any]):
+    """Setup CRM integration for a tenant"""
+    try:
+        provider_str = setup_data.get("provider", "")
+        credentials = setup_data.get("credentials", {})
+        tenant_id = setup_data.get("tenant_id")
+        
+        # Convert string to CRMProvider enum
+        provider = CRMProvider[provider_str.upper()]
+        
+        result = await crm_manager.setup_integration(provider, credentials, tenant_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message=f"CRM integration setup successfully for {provider_str}",
+            data=result
+        )
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid CRM provider")
+    except Exception as e:
+        logger.error(f"Error setting up CRM integration: {e}")
+        raise HTTPException(status_code=500, detail="Failed to setup CRM integration")
+
+@api_router.post("/integrations/crm/{integration_id}/sync-contacts", response_model=StandardResponse)
+async def sync_crm_contacts(integration_id: str, sync_request: Dict[str, Any]):
+    """Sync contacts between NOWHERE platform and CRM"""
+    try:
+        direction = sync_request.get("direction", "bidirectional")
+        
+        result = await crm_manager.sync_contacts(integration_id, direction)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Contact synchronization completed",
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error syncing CRM contacts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to sync contacts")
+
+@api_router.post("/integrations/crm/{integration_id}/create-lead", response_model=StandardResponse)
+async def create_crm_lead(integration_id: str, lead_data: Dict[str, Any]):
+    """Create a lead in the connected CRM system"""
+    try:
+        result = await crm_manager.create_lead_in_crm(integration_id, lead_data)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Lead created in CRM successfully",
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error creating CRM lead: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create CRM lead")
+
+@api_router.get("/integrations/crm/{integration_id}/analytics", response_model=StandardResponse)
+async def get_crm_analytics(integration_id: str):
+    """Get analytics data from CRM"""
+    try:
+        result = await crm_manager.get_crm_analytics(integration_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="CRM analytics retrieved successfully",
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error getting CRM analytics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get CRM analytics")
+
+@api_router.post("/integrations/crm/webhook/{integration_id}", response_model=StandardResponse)
+async def handle_crm_webhook(integration_id: str, webhook_data: Dict[str, Any]):
+    """Handle incoming CRM webhook"""
+    try:
+        result = await crm_manager.handle_crm_webhook(integration_id, webhook_data)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Webhook processed successfully",
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error handling CRM webhook: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process webhook")
+
+# ==========================================
+# PHASE 5B-D: PAYMENT, COMMUNICATION & AI INTEGRATIONS
+# ==========================================
+
+# Stripe Payment Endpoints
+@api_router.get("/integrations/payments/packages", response_model=StandardResponse)
+async def get_payment_packages():
+    """Get available payment packages"""
+    try:
+        packages = stripe_integration.PACKAGES
+        return StandardResponse(
+            success=True,
+            message="Payment packages retrieved",
+            data={"packages": packages}
+        )
+    except Exception as e:
+        logger.error(f"Error getting payment packages: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get payment packages")
+
+@api_router.post("/integrations/payments/create-session", response_model=StandardResponse)
+async def create_payment_session(request: Request, payment_data: Dict[str, Any]):
+    """Create Stripe checkout session"""
+    try:
+        package_id = payment_data.get("package_id")
+        host_url = payment_data.get("host_url") or str(request.base_url).rstrip("/")
+        metadata = payment_data.get("metadata", {})
+        
+        result = await stripe_integration.create_session(package_id, host_url, metadata)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Checkout session created",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating payment session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create payment session")
+
+@api_router.get("/integrations/payments/status/{session_id}", response_model=StandardResponse)
+async def get_payment_status(session_id: str):
+    """Get payment session status"""
+    try:
+        result = await stripe_integration.get_status(session_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Payment status retrieved",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting payment status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get payment status")
+
+# Twilio SMS Endpoints
+@api_router.post("/integrations/sms/send-otp", response_model=StandardResponse)
+async def send_sms_otp(otp_request: Dict[str, Any]):
+    """Send OTP via SMS"""
+    try:
+        phone_number = otp_request.get("phone_number")
+        if not phone_number:
+            raise HTTPException(status_code=400, detail="Phone number is required")
+        
+        result = await twilio_integration.send_otp(phone_number)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="OTP sent successfully",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending OTP: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send OTP")
+
+@api_router.post("/integrations/sms/verify-otp", response_model=StandardResponse)
+async def verify_sms_otp(verification_data: Dict[str, Any]):
+    """Verify OTP"""
+    try:
+        phone_number = verification_data.get("phone_number")
+        code = verification_data.get("code")
+        
+        if not phone_number or not code:
+            raise HTTPException(status_code=400, detail="Phone number and code are required")
+        
+        result = await twilio_integration.verify_otp(phone_number, code)
+        
+        return StandardResponse(
+            success=True,
+            message="OTP verification completed",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying OTP: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify OTP")
+
+@api_router.post("/integrations/sms/send", response_model=StandardResponse)
+async def send_sms(sms_data: Dict[str, Any]):
+    """Send SMS message"""
+    try:
+        to_number = sms_data.get("to_number")
+        message = sms_data.get("message")
+        
+        if not to_number or not message:
+            raise HTTPException(status_code=400, detail="Phone number and message are required")
+        
+        result = await twilio_integration.send_sms(to_number, message)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="SMS sent successfully",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending SMS: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send SMS")
+
+# SendGrid Email Endpoints
+@api_router.post("/integrations/email/send", response_model=StandardResponse)
+async def send_email(email_data: Dict[str, Any]):
+    """Send email via SendGrid"""
+    try:
+        to_email = email_data.get("to_email")
+        subject = email_data.get("subject")
+        html_content = email_data.get("html_content")
+        plain_text = email_data.get("plain_text")
+        
+        if not to_email or not subject or not html_content:
+            raise HTTPException(status_code=400, detail="to_email, subject, and html_content are required")
+        
+        result = await sendgrid_integration.send_email(to_email, subject, html_content, plain_text)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Email sent successfully",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send email")
+
+@api_router.post("/integrations/email/send-notification", response_model=StandardResponse)
+async def send_email_notification(notification_data: Dict[str, Any]):
+    """Send notification email"""
+    try:
+        to_email = notification_data.get("to_email")
+        notification_type = notification_data.get("type", "welcome")
+        data = notification_data.get("data", {})
+        
+        if not to_email:
+            raise HTTPException(status_code=400, detail="to_email is required")
+        
+        result = await sendgrid_integration.send_notification(to_email, notification_type, data)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message=f"{notification_type.title()} notification sent",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending notification: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send notification")
+
+# Voice AI Endpoints
+@api_router.post("/integrations/voice-ai/session", response_model=StandardResponse)
+async def create_voice_ai_session():
+    """Create Voice AI session"""
+    try:
+        result = await voice_ai_integration.create_voice_session()
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Voice AI session created",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating voice session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create voice session")
+
+@api_router.get("/integrations/voice-ai/info", response_model=StandardResponse)
+async def get_voice_ai_info():
+    """Get Voice AI integration information"""
+    try:
+        info = voice_ai_integration.get_integration_info()
+        return StandardResponse(
+            success=True,
+            message="Voice AI information retrieved",
+            data=info
+        )
+    except Exception as e:
+        logger.error(f"Error getting voice AI info: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get voice AI info")
+
+# Vision AI Endpoints
+@api_router.post("/integrations/vision-ai/analyze", response_model=StandardResponse)
+async def analyze_image_vision_ai(analysis_data: Dict[str, Any]):
+    """Analyze image using Vision AI"""
+    try:
+        image_data = analysis_data.get("image_data")
+        prompt = analysis_data.get("prompt", "Analyze this image and describe what you see in detail.")
+        image_type = analysis_data.get("image_type", "base64")
+        
+        if not image_data:
+            raise HTTPException(status_code=400, detail="image_data is required")
+        
+        result = await vision_ai_integration.analyze_image(image_data, prompt, image_type)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return StandardResponse(
+            success=True,
+            message="Image analysis completed",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing image: {e}")
+        raise HTTPException(status_code=500, detail="Failed to analyze image")
+
+@api_router.get("/integrations/vision-ai/formats", response_model=StandardResponse)
+async def get_vision_ai_formats():
+    """Get supported image formats for Vision AI"""
+    try:
+        formats = vision_ai_integration.get_supported_formats()
+        return StandardResponse(
+            success=True,
+            message="Supported formats retrieved",
+            data=formats
+        )
+    except Exception as e:
+        logger.error(f"Error getting vision AI formats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get supported formats")
+
 # Include the API router
 app.include_router(api_router)
 
@@ -1515,6 +2097,10 @@ async def startup_event():
     await inter_agent_comm.start()
     logger.info("Inter-agent communication system started")
     
+    # Initialize Phase 5 systems (Enterprise Security & Performance)
+    await performance_optimizer.initialize()
+    logger.info("Performance optimization system initialized")
+    
     logger.info("NOWHERE Digital API started successfully")
 
 @app.on_event("shutdown")
@@ -1522,6 +2108,7 @@ async def shutdown_event():
     """Close database connection and shutdown all systems"""
     await inter_agent_comm.stop()
     await orchestrator.shutdown()
+    await performance_optimizer.shutdown()
     await close_db_connection()
     logger.info("NOWHERE Digital API shutdown")
 

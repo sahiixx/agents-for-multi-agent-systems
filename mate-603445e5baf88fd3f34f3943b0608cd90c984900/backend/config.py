@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: List[str] = [
         "http://localhost:3000",
-        "https://onestop-digital.preview.emergentagent.com"
+        "https://ai-business-os-1.preview.emergentagent.com"
     ]
     
     # API Settings

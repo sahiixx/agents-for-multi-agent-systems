@@ -172,6 +172,22 @@ class SecurityManager:
         
         logger.info("Enterprise Security Manager initialized")
     
+    def _get_role_permissions(self, role_str: str) -> List[Permission]:
+        """Get permissions for a role string"""
+        try:
+            # Try to convert string to UserRole enum
+            if isinstance(role_str, str):
+                for role in UserRole:
+                    if role.value == role_str:
+                        return self.role_permissions.get(role, [])
+            elif isinstance(role_str, UserRole):
+                return self.role_permissions.get(role_str, [])
+            
+            # Default to viewer permissions
+            return self.role_permissions.get(UserRole.VIEWER, [])
+        except Exception:
+            return self.role_permissions.get(UserRole.VIEWER, [])
+    
     async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user with security validation"""
         try:
@@ -198,7 +214,7 @@ class SecurityManager:
                 "last_login": None,
                 "active": True,
                 "mfa_enabled": False,
-                "permissions": self.role_permissions.get(UserRole(user_data.get('role', 'viewer')), [])
+                "permissions": [perm.value for perm in self._get_role_permissions(user_data.get('role', UserRole.VIEWER.value))]
             }
             
             # Store in database
@@ -225,7 +241,7 @@ class SecurityManager:
                 "user_id": user_id,
                 "email": user_record["email"],
                 "role": user_record["role"],
-                "permissions": [p.value for p in user_record["permissions"]]
+                "permissions": user_record["permissions"]
             }
             
         except Exception as e:

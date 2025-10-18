@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     
     # Email Settings
     sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")
+    sendgrid_from_email: str = os.getenv("SENDGRID_FROM_EMAIL", "noreply@nowheredigital.ae")
     sender_email: str = os.getenv("SENDER_EMAIL", "hello@nowheredigital.ae")
     admin_email: str = os.getenv("ADMIN_EMAIL", "admin@nowheredigital.ae")
     
@@ -16,6 +17,16 @@ class Settings(BaseSettings):
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     default_ai_model: str = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
     ai_provider: str = os.getenv("AI_PROVIDER", "openai")
+    emergent_llm_key: str = os.getenv("EMERGENT_LLM_KEY", "sk-emergent-8A3Bc7c1f91F43cE8D")
+    
+    # Payment Settings
+    stripe_api_key: str = os.getenv("STRIPE_API_KEY", "sk_test_emergent")
+    
+    # SMS Settings
+    twilio_account_sid: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    twilio_auth_token: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    twilio_verify_service: str = os.getenv("TWILIO_VERIFY_SERVICE", "")
+    twilio_phone_number: str = os.getenv("TWILIO_PHONE_NUMBER", "")
     
     # Security
     jwt_secret: str = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
@@ -25,7 +36,7 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: List[str] = [
         "http://localhost:3000",
-        "https://onestop-digital.preview.emergentagent.com"
+        "https://ai-business-os-1.preview.emergentagent.com"
     ]
     
     # API Settings

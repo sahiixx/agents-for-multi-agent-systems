@@ -12,7 +12,6 @@ from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
 import psutil
-import aioredis
 from collections import deque, defaultdict
 
 from database import get_database
