@@ -1,6 +1,6 @@
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
-from config import settings
+from backend.config import settings
 import logging
 from typing import Optional, Dict, Any
 import os

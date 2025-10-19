@@ -1,5 +1,5 @@
 from emergentintegrations.llm.chat import LlmChat, UserMessage
-from config import settings
+from backend.config import settings
 import logging
 from typing import Dict, Any, Optional
 import asyncio

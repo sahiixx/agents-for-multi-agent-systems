@@ -4,7 +4,7 @@ Capabilities: Data analysis, forecasting, anomaly detection, reporting
 """
 from typing import Dict, Any, List
 from .base_agent import BaseAgent, AgentCapability
-from services.ai_service import AIService
+from backend.services.ai_service import AIService
 
 class AnalyticsAgent(BaseAgent):
     """

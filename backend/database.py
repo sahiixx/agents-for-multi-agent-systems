@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from config import settings
+from backend.config import settings
 import logging
 from typing import Optional
 

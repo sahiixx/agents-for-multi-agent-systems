@@ -3,7 +3,7 @@ Unit tests for backend/integrations/crm_integrations.py
 Tests CRM integration manager for multiple providers
 """
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
 from backend.integrations.crm_integrations import (
     CRMIntegrationManager, 
@@ -96,19 +96,39 @@ class TestCRMIntegrationManager:
     async def test_setup_integration_connection_failure(self, mock_session, manager):
         """Test setup with connection failure"""
         credentials = {"access_token": "invalid_token"}
-        
-        # Mock failed API response
-        mock_response = AsyncMock()
-        mock_response.status = 401
-        mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
-        
+
+        # Provide explicit async context manager fakes to avoid un-awaited coroutine warnings
+        class FailingResponse:
+            def __init__(self, status: int):
+                self.status = status
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class SessionStub:
+            def __init__(self, response):
+                self._response = response
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            def get(self, *args, **kwargs):
+                return self._response
+
+        mock_session.return_value = SessionStub(FailingResponse(status=401))
+
         result = await manager.setup_integration(
             provider=CRMProvider.HUBSPOT,
             credentials=credentials
         )
-        
-        # Should still return result but may indicate connection issue
-        assert "integration_id" in result or "error" in result
+
+        assert result == {"error": "Failed to connect to hubspot: HTTP 401"}
     
     @pytest.mark.asyncio
     async def test_sync_contacts_integration_not_found(self, manager):

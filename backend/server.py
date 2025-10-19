@@ -14,36 +14,36 @@ import asyncio
 import uuid
 
 # Import our modules
-from config import settings
-from database import connect_to_db, close_db_connection, get_database
-from models import *
-from services.email_service import email_service
-from services.ai_service import ai_service
+from backend.config import settings
+from backend.database import connect_to_db, close_db_connection, get_database
+from backend.models import *
+from backend.services.email_service import email_service
+from backend.services.ai_service import ai_service
 
 # Import agent system
-from agents.agent_orchestrator import orchestrator
-from agents.sales_agent import SalesAgent
+from backend.agents.agent_orchestrator import orchestrator
+from backend.agents.sales_agent import SalesAgent
 
 # Import Phase 2 components
-from core.plugin_manager import plugin_manager
-from blueprints.industry_templates import template_manager, IndustryType
+from backend.core.plugin_manager import plugin_manager
+from backend.blueprints.industry_templates import template_manager, IndustryType
 
 # Import Phase 3 & 4 components
-from core.white_label_manager import white_label_manager, TenantConfig
-from core.inter_agent_communication import inter_agent_comm, AgentMessage, MessageType
-from core.insights_engine import insights_engine, InsightType
+from backend.core.white_label_manager import white_label_manager, TenantConfig
+from backend.core.inter_agent_communication import inter_agent_comm, AgentMessage, MessageType
+from backend.core.insights_engine import insights_engine, InsightType
 
 # Import Phase 5 components (Enterprise Security & Performance)
-from core.security_manager import security_manager, UserRole, Permission, ComplianceStandard
-from core.performance_optimizer import performance_optimizer, MetricType, PerformanceMetric
-from integrations.crm_integrations import crm_manager, CRMProvider
+from backend.core.security_manager import security_manager, UserRole, Permission, ComplianceStandard
+from backend.core.performance_optimizer import performance_optimizer, MetricType, PerformanceMetric
+from backend.integrations.crm_integrations import crm_manager, CRMProvider
 
 # Import Phase 5B-D integrations (Payments, Communication, AI)
-from integrations.stripe_integration import stripe_integration
-from integrations.twilio_integration import twilio_integration
-from integrations.sendgrid_integration import sendgrid_integration
-from integrations.voice_ai_integration import voice_ai_integration
-from integrations.vision_ai_integration import vision_ai_integration
+from backend.integrations.stripe_integration import stripe_integration
+from backend.integrations.twilio_integration import twilio_integration
+from backend.integrations.sendgrid_integration import sendgrid_integration
+from backend.integrations.voice_ai_integration import voice_ai_integration
+from backend.integrations.vision_ai_integration import vision_ai_integration
 
 # Configure logging
 logging.basicConfig(

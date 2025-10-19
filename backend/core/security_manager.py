@@ -14,8 +14,8 @@ import json
 import ipaddress
 from dataclasses import dataclass
 
-from database import get_database
-from services.ai_service import AIService
+from backend.database import get_database
+from backend.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 

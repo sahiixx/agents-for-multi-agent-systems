@@ -7,7 +7,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone, timedelta
 from .base_agent import BaseAgent, AgentCapability, AgentStatus
-from services.ai_service import AIService
+from backend.services.ai_service import AIService
 
 class SalesAgent(BaseAgent):
     """
