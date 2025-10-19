@@ -1,286 +1,130 @@
 """
-Comprehensive unit tests for backend/core/inter_agent_communication.py
-Tests inter-agent communication and coordination
+Unit tests for backend/core/inter_agent_communication.py
+Focus on message routing, collaboration, and handler behaviors.
 """
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from datetime import datetime
+import asyncio
+from unittest.mock import AsyncMock, Mock, patch
 
+from backend.agents.base_agent import BaseAgent, AgentCapability
+from backend.core.inter_agent_communication import (
+    InterAgentCommunication,
+    AgentMessage,
+    MessageType,
+    MessagePriority,
+)
 
-class TestMessageType:
-    """Test MessageType enum"""
-    
-    def test_message_types_defined(self):
-        """Test all message types are defined"""
-        from backend.core.inter_agent_communication import MessageType
-        
-        assert MessageType.REQUEST
-        assert MessageType.RESPONSE
-        assert MessageType.NOTIFICATION
-        assert MessageType.BROADCAST
-        assert MessageType.TASK_ASSIGNMENT
-        assert MessageType.STATUS_UPDATE
+class MiniAgent(BaseAgent):
+    def __init__(self, agent_id, caps):
+        super().__init__(agent_id=agent_id, name=f"Agent {agent_id}", description="mini")
+        self._caps = caps
 
+    def get_capabilities(self):
+        return self._caps
 
-class TestAgentMessage:
-    """Test AgentMessage dataclass"""
-    
-    def test_agent_message_creation(self):
-        """Test creating AgentMessage"""
-        from backend.core.inter_agent_communication import AgentMessage, MessageType
-        
-        message = AgentMessage(
-            message_id="msg_123",
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"action": "test"},
-            priority=5,
-            timestamp=datetime.now().isoformat()
-        )
-        
-        assert message.message_id == "msg_123"
-        assert message.from_agent == "agent_1"
-        assert message.to_agent == "agent_2"
-        assert message.message_type == MessageType.REQUEST
-        assert message.priority == 5
+    async def process_task(self, task):
+        return {"ok": True, "echo": task}
 
+# Build a minimal orchestrator with an agent registry
+def make_orchestrator():
+    a1 = MiniAgent("a1", [AgentCapability.DATA_ANALYSIS])
+    a2 = MiniAgent("a2", [AgentCapability.WORKFLOW_AUTOMATION])
+    orchestrator = type("Orch", (), {})()
+    orchestrator.agents = {"a1": a1, "a2": a2}
+    return orchestrator
 
-class TestInterAgentCommunicationInitialization:
-    """Test InterAgentCommunication initialization"""
-    
-    def test_inter_agent_comm_creation(self):
-        """Test InterAgentCommunication can be created"""
-        from backend.core.inter_agent_communication import InterAgentCommunication
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        assert comm is not None
-        assert hasattr(comm, "orchestrator")
-        assert hasattr(comm, "message_queue")
-        assert hasattr(comm, "agent_channels")
-        assert hasattr(comm, "message_history")
-    
-    def test_message_queue_initialized(self):
-        """Test message queue is initialized"""
-        from backend.core.inter_agent_communication import InterAgentCommunication
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        assert isinstance(comm.message_queue, dict)
-    
-    def test_agent_channels_initialized(self):
-        """Test agent channels are initialized"""
-        from backend.core.inter_agent_communication import InterAgentCommunication
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        assert isinstance(comm.agent_channels, dict)
-    
-    def test_global_inter_agent_comm_instance(self):
-        """Test global inter_agent_comm instance exists"""
-        from backend.core.inter_agent_communication import inter_agent_comm
-        
-        assert inter_agent_comm is not None
+@pytest.mark.asyncio
+async def test_send_message_increments_metrics_and_queue():
+    iac = InterAgentCommunication(make_orchestrator())
+    msg = AgentMessage({"from_agent_id": "a1", "to_agent_id": "a2", "message_type": MessageType.TASK_REQUEST.value})
+    ok = await iac.send_message(msg)
+    assert ok is True
+    assert iac.metrics["messages_sent"] == 1
+    assert iac.message_queue.qsize() == 1
 
+@pytest.mark.asyncio
+async def test_delegate_task_returns_message_id_and_queues_message():
+    iac = InterAgentCommunication(make_orchestrator())
+    with patch.object(iac, "send_message", new=AsyncMock(return_value=True)) as sm:
+        mid = await iac.delegate_task("a1", "a2", {"task_type": "x", "task_data": {"k": 1}})
+        assert isinstance(mid, str) and mid
+        sm.assert_awaited()
 
-class TestSendMessage:
-    """Test send_message method"""
-    
-    @pytest.mark.asyncio
-    async def test_send_message_success(self):
-        """Test sending message successfully"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        result = await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"data": "test"}
-        )
-        
-        assert result is not None
-        assert "message_id" in result
-    
-    @pytest.mark.asyncio
-    async def test_send_message_with_priority(self):
-        """Test sending message with priority"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        result = await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"data": "urgent"},
-            priority=10
-        )
-        
-        assert result is not None
-        assert "priority" in result
+@pytest.mark.asyncio
+async def test_request_collaboration_populates_active_map_and_sends_requests():
+    iac = InterAgentCommunication(make_orchestrator())
+    with patch.object(iac, "send_message", new=AsyncMock(return_value=True)) as sm:
+        cid = await iac.request_collaboration({
+            "initiator_agent_id": "a1",
+            "participating_agents": ["a1", "a2"],
+            "required_capabilities": ["data_analysis", "workflow_automation"],
+            "task_flow": ["step1", "step2"],
+            "description": "demo"
+        })
+        assert isinstance(cid, str) and cid
+        assert cid in iac.active_collaborations
+        # two requests (for both agents)
+        assert sm.await_count >= 2
 
+@pytest.mark.asyncio
+async def test_handle_task_request_routes_to_agent_and_sends_response():
+    iac = InterAgentCommunication(make_orchestrator())
+    # Patch send_message to capture response
+    sent = {}
+    async def capture(message):
+        sent["last"] = message
+        return True
+    iac.send_message = capture
 
-class TestBroadcastMessage:
-    """Test broadcast_message method"""
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_message(self):
-        """Test broadcasting message to all agents"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        # Add some agent channels
-        comm.agent_channels["agent_1"] = []
-        comm.agent_channels["agent_2"] = []
-        comm.agent_channels["agent_3"] = []
-        
-        result = await comm.broadcast_message(
-            from_agent="orchestrator",
-            message_type=MessageType.BROADCAST,
-            content={"announcement": "system update"}
-        )
-        
-        assert isinstance(result, dict)
+    msg = AgentMessage({
+        "from_agent_id":"a1",
+        "to_agent_id":"a2",
+        "message_type": MessageType.TASK_REQUEST.value,
+        "priority": MessagePriority.MEDIUM.value,
+        "payload": {"task_type": "process_task", "task_data": {"x": 1}},
+        "requires_response": True
+    })
+    await iac._handle_task_request(msg, iac.orchestrator.agents["a2"])
+    assert "last" in sent
+    assert sent["last"].message_type == MessageType.TASK_RESPONSE
 
+@pytest.mark.asyncio
+async def test_handle_resource_share_updates_target_memory():
+    iac = InterAgentCommunication(make_orchestrator())
+    tgt = iac.orchestrator.agents["a2"]
+    msg = AgentMessage({
+        "from_agent_id":"a1",
+        "to_agent_id":"a2",
+        "message_type": MessageType.RESOURCE_SHARE.value,
+        "payload": {
+            "resource_type":"data",
+            "resource_data":{"a":1},
+            "access_level":"read"
+        }
+    })
+    await iac._handle_resource_share(msg, tgt)
+    mem = await tgt.get_memory()
+    # Ensure a shared resource key is present
+    assert any(k.startswith("shared_resource_") for k in mem.keys())
 
-class TestGetMessages:
-    """Test get_messages method"""
-    
-    @pytest.mark.asyncio
-    async def test_get_messages_for_agent(self):
-        """Test getting messages for specific agent"""
-        from backend.core.inter_agent_communication import InterAgentCommunication
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        # Initialize queue for agent
-        comm.message_queue["agent_1"] = []
-        
-        messages = await comm.get_messages("agent_1")
-        
-        assert isinstance(messages, list)
-    
-    @pytest.mark.asyncio
-    async def test_get_messages_empty_queue(self):
-        """Test getting messages from empty queue"""
-        from backend.core.inter_agent_communication import InterAgentCommunication
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        messages = await comm.get_messages("nonexistent_agent")
-        
-        assert messages == []
+@pytest.mark.asyncio
+async def test_start_and_stop_background_processor_is_safe():
+    iac = InterAgentCommunication(make_orchestrator())
+    await iac.start()
+    assert iac.running is True
+    await iac.stop()
+    assert iac.running is False
 
-
-class TestMessageHistory:
-    """Test message history tracking"""
-    
-    @pytest.mark.asyncio
-    async def test_message_history_recorded(self):
-        """Test that sent messages are recorded in history"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"test": "data"}
-        )
-        
-        # History should be updated
-        assert isinstance(comm.message_history, dict)
-
-
-class TestInterAgentCommunicationIntegration:
-    """Integration tests for InterAgentCommunication"""
-    
-    @pytest.mark.asyncio
-    async def test_send_and_receive_workflow(self):
-        """Test complete send and receive workflow"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        # Send message
-        result = await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"action": "process_data"}
-        )
-        
-        assert "message_id" in result
-        
-        # Receive messages
-        messages = await comm.get_messages("agent_2")
-        
-        assert isinstance(messages, list)
-    
-    @pytest.mark.asyncio
-    async def test_multiple_agent_communication(self):
-        """Test communication between multiple agents"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        # Agent 1 to Agent 2
-        await comm.send_message("agent_1", "agent_2", MessageType.REQUEST, {"task": "1"})
-        
-        # Agent 2 to Agent 3
-        await comm.send_message("agent_2", "agent_3", MessageType.REQUEST, {"task": "2"})
-        
-        # Agent 3 to Agent 1
-        await comm.send_message("agent_3", "agent_1", MessageType.RESPONSE, {"result": "done"})
-        
-        # All agents should have their queues
-        messages_2 = await comm.get_messages("agent_2")
-        messages_3 = await comm.get_messages("agent_3")
-        messages_1 = await comm.get_messages("agent_1")
-        
-        assert isinstance(messages_2, list)
-        assert isinstance(messages_3, list)
-        assert isinstance(messages_1, list)
-
-
-class TestMessagePriority:
-    """Test message priority handling"""
-    
-    @pytest.mark.asyncio
-    async def test_high_priority_message(self):
-        """Test sending high priority message"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        result = await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.REQUEST,
-            content={"urgent": True},
-            priority=10
-        )
-        
-        assert result is not None
-    
-    @pytest.mark.asyncio
-    async def test_low_priority_message(self):
-        """Test sending low priority message"""
-        from backend.core.inter_agent_communication import InterAgentCommunication, MessageType
-        
-        comm = InterAgentCommunication(orchestrator=None)
-        
-        result = await comm.send_message(
-            from_agent="agent_1",
-            to_agent="agent_2",
-            message_type=MessageType.NOTIFICATION,
-            content={"info": "status"},
-            priority=1
-        )
-        
-        assert result is not None
+@pytest.mark.asyncio
+async def test_get_collaboration_status_shape():
+    iac = InterAgentCommunication(make_orchestrator())
+    with patch.object(iac, "send_message", new=AsyncMock(return_value=True)):
+        cid = await iac.request_collaboration({
+            "initiator_agent_id": "a1",
+            "participating_agents": ["a1"],
+            "required_capabilities": ["data_analysis"],
+            "task_flow": ["step1"]
+        })
+    status = await iac.get_collaboration_status(cid)
+    assert status["collaboration_id"] == cid
+    assert status["total_steps"] == 1

@@ -1,346 +1,410 @@
 """
-Comprehensive unit tests for backend/services/ai_service.py
-Tests AI service functionality including chat and content generation
+Unit tests for backend/services/ai_service.py
+Tests AI service integration and chat functionality
 """
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from backend.services.ai_service import AIService
 
 
 class TestAIServiceInitialization:
     """Test AIService initialization"""
     
-    def test_ai_service_creation(self):
-        """Test AIService can be created"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        assert service is not None
-        assert hasattr(service, "api_key")
-        assert hasattr(service, "model")
-        assert hasattr(service, "provider")
+    def test_ai_service_initialization(self):
+        """Test that AIService initializes with correct configuration"""
+        with patch('backend.services.ai_service.settings') as mock_settings:
+            mock_settings.openai_api_key = "test_key"
+            mock_settings.default_ai_model = "gpt-4o"
+            mock_settings.ai_provider = "openai"
+            
+            service = AIService()
+            
+            assert service.api_key == "test_key"
+            assert service.model == "gpt-4o"
+            assert service.provider == "openai"
     
-    def test_ai_service_uses_config_settings(self):
-        """Test AIService uses configuration from settings"""
-        from backend.services.ai_service import AIService
-        from backend.config import settings
-        
-        service = AIService()
-        assert service.api_key == settings.openai_api_key
-        assert service.model == settings.default_ai_model
-        assert service.provider == settings.ai_provider
-    
-    def test_global_ai_service_instance(self):
-        """Test global ai_service instance is available"""
-        from backend.services.ai_service import ai_service
-        
-        assert ai_service is not None
+    def test_ai_service_uses_settings(self):
+        """Test that AIService reads from settings"""
+        with patch('backend.services.ai_service.settings') as mock_settings:
+            mock_settings.openai_api_key = "custom_key"
+            mock_settings.default_ai_model = "gpt-3.5-turbo"
+            mock_settings.ai_provider = "anthropic"
+            
+            service = AIService()
+            
+            assert service.api_key == "custom_key"
+            assert service.model == "gpt-3.5-turbo"
+            assert service.provider == "anthropic"
 
 
 class TestCreateChatSession:
-    """Test create_chat_session method"""
-    
-    @pytest.mark.asyncio
-    async def test_create_chat_session_with_default_system_message(self):
-        """Test creating chat session with default system message"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        chat = await service.create_chat_session("test_session_123")
-        
-        assert chat is not None
-        assert isinstance(chat, LlmChat)
-        assert chat.session_id == "test_session_123"
+    """Test create_chat_session functionality"""
     
     @pytest.mark.asyncio
     async def test_create_chat_session_with_custom_system_message(self):
         """Test creating chat session with custom system message"""
-        from backend.services.ai_service import AIService
-        
         service = AIService()
-        custom_message = "You are a test assistant"
-        chat = await service.create_chat_session("test_session_456", custom_message)
+        session_id = "test_session_123"
+        custom_message = "You are a helpful assistant"
         
-        assert chat is not None
-        assert chat.system_message == custom_message
-    
-    @pytest.mark.asyncio
-    async def test_chat_session_configures_model(self):
-        """Test chat session is configured with correct model"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        chat = await service.create_chat_session("test_session_789")
-        
-        # Model should be configured
-        assert hasattr(chat, "model")
-        assert chat.model[0] == service.provider
-        assert chat.model[1] == service.model
-    
-    @pytest.mark.asyncio
-    async def test_chat_session_configures_max_tokens(self):
-        """Test chat session is configured with max tokens"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        chat = await service.create_chat_session("test_session")
-        
-        assert chat.max_tokens == 2048
-    
-    @pytest.mark.asyncio
-    async def test_create_chat_session_handles_errors(self):
-        """Test error handling in chat session creation"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        
-        with patch("emergentintegrations.llm.chat.LlmChat", side_effect=Exception("API Error")):
-            with pytest.raises(Exception) as exc_info:
-                await service.create_chat_session("test_session")
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat_instance = Mock()
+            mock_chat_instance.with_model = Mock(return_value=mock_chat_instance)
+            mock_chat_instance.with_max_tokens = Mock(return_value=mock_chat_instance)
+            mock_chat_class.return_value = mock_chat_instance
             
-            assert "API Error" in str(exc_info.value)
+            await service.create_chat_session(session_id, custom_message)
+            
+            mock_chat_class.assert_called_once()
+            call_kwargs = mock_chat_class.call_args[1]
+            assert call_kwargs['session_id'] == session_id
+            assert call_kwargs['system_message'] == custom_message
+            mock_chat_instance.with_model.assert_called_once()
+            mock_chat_instance.with_max_tokens.assert_called_once_with(2048)
+    
+    @pytest.mark.asyncio
+    async def test_create_chat_session_with_default_system_message(self):
+        """Test creating chat session with default system message"""
+        service = AIService()
+        session_id = "test_session_456"
+        
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat_instance = Mock()
+            mock_chat_instance.with_model = Mock(return_value=mock_chat_instance)
+            mock_chat_instance.with_max_tokens = Mock(return_value=mock_chat_instance)
+            mock_chat_class.return_value = mock_chat_instance
+            
+            await service.create_chat_session(session_id)
+            
+            mock_chat_class.assert_called_once()
+            call_kwargs = mock_chat_class.call_args[1]
+            assert "NOWHERE Digital" in call_kwargs['system_message']
+            assert "Dubai" in call_kwargs['system_message']
+    
+    @pytest.mark.asyncio
+    async def test_create_chat_session_configures_model(self):
+        """Test that chat session is configured with correct model"""
+        service = AIService()
+        service.provider = "openai"
+        service.model = "gpt-4o"
+        
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat_instance = Mock()
+            mock_chat_instance.with_model = Mock(return_value=mock_chat_instance)
+            mock_chat_instance.with_max_tokens = Mock(return_value=mock_chat_instance)
+            mock_chat_class.return_value = mock_chat_instance
+            
+            await service.create_chat_session("session_id")
+            
+            mock_chat_instance.with_model.assert_called_once_with("openai", "gpt-4o")
+    
+    @pytest.mark.asyncio
+    async def test_create_chat_session_error_handling(self):
+        """Test error handling in create_chat_session"""
+        service = AIService()
+        
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat_class.side_effect = Exception("API error")
+            
+            with pytest.raises(Exception) as exc_info:
+                await service.create_chat_session("session_id")
+            
+            assert "API error" in str(exc_info.value)
 
 
 class TestSendChatMessage:
-    """Test send_chat_message method"""
+    """Test send_chat_message functionality"""
     
     @pytest.mark.asyncio
     async def test_send_chat_message_success(self):
-        """Test sending chat message successfully"""
-        from backend.services.ai_service import AIService
-        
+        """Test successful message sending"""
         service = AIService()
-        response = await service.send_chat_message("test_session", "Hello AI")
+        session_id = "test_session"
+        message = "What services do you offer?"
+        expected_response = "We offer digital marketing services"
         
-        assert response is not None
-        assert isinstance(response, str)
-        assert len(response) > 0
-    
-    @pytest.mark.asyncio
-    async def test_send_chat_message_returns_meaningful_response(self):
-        """Test chat message returns meaningful response"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        response = await service.send_chat_message("test_session", "Tell me about your services")
-        
-        assert isinstance(response, str)
-        assert len(response) > 0
-    
-    @pytest.mark.asyncio
-    async def test_send_chat_message_handles_errors(self):
-        """Test error handling when sending message fails"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        
-        with patch.object(service, "create_chat_session", side_effect=Exception("Connection failed")):
-            response = await service.send_chat_message("test_session", "Hello")
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value=expected_response)
+            mock_create.return_value = mock_chat
             
-            # Should return error message instead of raising
-            assert "sorry" in response.lower()
-            assert "trouble" in response.lower() or "error" in response.lower()
+            response = await service.send_chat_message(session_id, message)
+            
+            assert response == expected_response
+            mock_create.assert_called_once_with(session_id)
+            mock_chat.send_message.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_send_chat_message_with_empty_message(self):
-        """Test sending empty message"""
-        from backend.services.ai_service import AIService
-        
+    async def test_send_chat_message_creates_user_message(self):
+        """Test that UserMessage is created correctly"""
         service = AIService()
-        response = await service.send_chat_message("test_session", "")
+        message_text = "Hello, I need help"
         
-        # Should handle gracefully
-        assert isinstance(response, str)
+        with patch.object(service, 'create_chat_session') as mock_create:
+            with patch('backend.services.ai_service.UserMessage') as mock_user_message_class:
+                mock_chat = AsyncMock()
+                mock_chat.send_message = AsyncMock(return_value="Response")
+                mock_create.return_value = mock_chat
+                mock_user_message_class.return_value = Mock()
+                
+                await service.send_chat_message("session", message_text)
+                
+                mock_user_message_class.assert_called_once_with(text=message_text)
+    
+    @pytest.mark.asyncio
+    async def test_send_chat_message_error_handling(self):
+        """Test error handling in send_chat_message"""
+        service = AIService()
+        
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_create.side_effect = Exception("Connection error")
+            
+            response = await service.send_chat_message("session_id", "test message")
+            
+            assert "trouble processing" in response
+            assert "try again later" in response
 
 
 class TestGenerateContent:
-    """Test generate_content method"""
+    """Test generate_content functionality"""
     
     @pytest.mark.asyncio
-    async def test_generate_blog_post(self):
+    async def test_generate_content_blog_post(self):
         """Test generating blog post content"""
-        from backend.services.ai_service import AIService
-        
         service = AIService()
-        content = await service.generate_content(
-            "blog_post",
-            "Write about digital marketing trends in Dubai"
-        )
+        content_type = "blog_post"
+        prompt = "Write about SEO best practices"
         
-        assert content is not None
-        assert isinstance(content, str)
-        assert len(content) > 0
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="SEO blog content...")
+            mock_create.return_value = mock_chat
+            
+            content = await service.generate_content(content_type, prompt)
+            
+            assert content == "SEO blog content..."
+            mock_create.assert_called_once()
+            # Verify system message is blog-specific
+            call_args = mock_create.call_args
+            assert "content writer" in call_args[0][1].lower()
     
     @pytest.mark.asyncio
-    async def test_generate_social_media_content(self):
+    async def test_generate_content_social_media(self):
         """Test generating social media content"""
-        from backend.services.ai_service import AIService
-        
         service = AIService()
-        content = await service.generate_content(
-            "social_media",
-            "Create a post about web development services"
-        )
+        content_type = "social_media"
+        prompt = "Create Instagram post"
         
-        assert isinstance(content, str)
-        assert len(content) > 0
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Social media post...")
+            mock_create.return_value = mock_chat
+            
+            content = await service.generate_content(content_type, prompt)
+            
+            assert content == "Social media post..."
+            call_args = mock_create.call_args
+            assert "social media" in call_args[0][1].lower()
     
     @pytest.mark.asyncio
-    async def test_generate_ad_copy(self):
+    async def test_generate_content_ad_copy(self):
         """Test generating ad copy"""
-        from backend.services.ai_service import AIService
-        
         service = AIService()
-        content = await service.generate_content(
-            "ad_copy",
-            "Promote our SEO services"
-        )
+        content_type = "ad_copy"
+        prompt = "Create Facebook ad"
         
-        assert isinstance(content, str)
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Ad copy...")
+            mock_create.return_value = mock_chat
+            
+            content = await service.generate_content(content_type, prompt)
+            
+            assert content == "Ad copy..."
+            call_args = mock_create.call_args
+            assert "advertising copywriter" in call_args[0][1].lower()
     
     @pytest.mark.asyncio
-    async def test_generate_email_campaign(self):
-        """Test generating email campaign content"""
-        from backend.services.ai_service import AIService
-        
+    async def test_generate_content_email_campaign(self):
+        """Test generating email campaign"""
         service = AIService()
-        content = await service.generate_content(
-            "email_campaign",
-            "Welcome new customers to our platform"
-        )
+        content_type = "email_campaign"
+        prompt = "Create welcome email"
         
-        assert isinstance(content, str)
-    
-    @pytest.mark.asyncio
-    async def test_generate_web_copy(self):
-        """Test generating web copy"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        content = await service.generate_content(
-            "web_copy",
-            "Homepage hero section about AI solutions"
-        )
-        
-        assert isinstance(content, str)
-    
-    @pytest.mark.asyncio
-    async def test_generate_seo_content(self):
-        """Test generating SEO content"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        content = await service.generate_content(
-            "seo_content",
-            "Write about AI business automation for UAE market"
-        )
-        
-        assert isinstance(content, str)
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Email content...")
+            mock_create.return_value = mock_chat
+            
+            content = await service.generate_content(content_type, prompt)
+            
+            assert content == "Email content..."
+            call_args = mock_create.call_args
+            assert "email marketing" in call_args[0][1].lower()
     
     @pytest.mark.asyncio
     async def test_generate_content_with_additional_context(self):
         """Test generating content with additional context"""
-        from backend.services.ai_service import AIService
-        
         service = AIService()
-        context = {
-            "target_audience": "Small businesses in Dubai",
-            "tone": "Professional but friendly",
-            "word_count": 500
+        additional_context = {
+            "target_audience": "Dubai businesses",
+            "tone": "professional"
         }
         
-        content = await service.generate_content(
-            "blog_post",
-            "Write about the benefits of AI automation",
-            additional_context=context
-        )
-        
-        assert isinstance(content, str)
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Content...")
+            mock_create.return_value = mock_chat
+            
+            with patch('backend.services.ai_service.UserMessage') as mock_user_message:
+                mock_user_message.return_value = Mock()
+                
+                await service.generate_content(
+                    "blog_post",
+                    "Write about marketing",
+                    additional_context
+                )
+                
+                # Verify context was included
+                mock_chat.send_message.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_generate_content_unknown_type(self):
-        """Test generating content with unknown content type"""
-        from backend.services.ai_service import AIService
-        
-        service = AIService()
-        content = await service.generate_content(
-            "unknown_type",
-            "Test prompt"
-        )
-        
-        # Should still work with default system message
-        assert isinstance(content, str)
-    
-    @pytest.mark.asyncio
-    async def test_generate_content_handles_errors(self):
-        """Test error handling in content generation"""
-        from backend.services.ai_service import AIService
-        
+    async def test_generate_content_error_handling(self):
+        """Test error handling in generate_content"""
         service = AIService()
         
-        with patch.object(service, "create_chat_session", side_effect=Exception("API Error")):
-            # Should handle error gracefully
-            content = await service.generate_content("blog_post", "Test")
-            # If it returns something, should be error message
-            assert isinstance(content, str)
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_create.side_effect = Exception("Generation error")
+            
+            # Should not raise exception, but return error message
+            content = await service.generate_content("blog_post", "test prompt")
+            
+            # Depending on implementation, should handle gracefully
+            assert content is not None
 
 
 class TestAIServiceIntegration:
-    """Integration tests for AI service"""
+    """Test AI service integration scenarios"""
     
     @pytest.mark.asyncio
     async def test_multiple_chat_sessions(self):
-        """Test creating multiple chat sessions"""
-        from backend.services.ai_service import AIService
-        
+        """Test handling multiple chat sessions"""
         service = AIService()
         
-        chat1 = await service.create_chat_session("session1")
-        chat2 = await service.create_chat_session("session2")
-        
-        assert chat1.session_id == "session1"
-        assert chat2.session_id == "session2"
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat = Mock()
+            mock_chat.with_model = Mock(return_value=mock_chat)
+            mock_chat.with_max_tokens = Mock(return_value=mock_chat)
+            mock_chat_class.return_value = mock_chat
+            
+            session1 = await service.create_chat_session("session_1")
+            session2 = await service.create_chat_session("session_2")
+            
+            assert session1 is not None
+            assert session2 is not None
+            assert mock_chat_class.call_count == 2
     
     @pytest.mark.asyncio
-    async def test_chat_and_content_generation(self):
-        """Test both chat and content generation work"""
-        from backend.services.ai_service import AIService
-        
+    async def test_chat_with_uae_context(self):
+        """Test that chat includes UAE market context"""
         service = AIService()
         
-        # Send chat message
-        chat_response = await service.send_chat_message("test", "Hello")
-        assert isinstance(chat_response, str)
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat = Mock()
+            mock_chat.with_model = Mock(return_value=mock_chat)
+            mock_chat.with_max_tokens = Mock(return_value=mock_chat)
+            mock_chat_class.return_value = mock_chat
+            
+            await service.create_chat_session("session_id")
+            
+            call_kwargs = mock_chat_class.call_args[1]
+            system_message = call_kwargs['system_message']
+            
+            assert "UAE" in system_message or "Dubai" in system_message
+            assert "digital marketing" in system_message.lower()
+    
+    @pytest.mark.asyncio
+    async def test_service_configuration_consistency(self):
+        """Test that service maintains configuration consistency"""
+        service = AIService()
+        service.api_key = "test_key"
+        service.model = "gpt-4"
+        service.provider = "openai"
         
-        # Generate content
-        content = await service.generate_content("blog_post", "Test")
-        assert isinstance(content, str)
+        # Multiple operations should use same config
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat = Mock()
+            mock_chat.with_model = Mock(return_value=mock_chat)
+            mock_chat.with_max_tokens = Mock(return_value=mock_chat)
+            mock_chat_class.return_value = mock_chat
+            
+            await service.create_chat_session("session_1")
+            await service.create_chat_session("session_2")
+            
+            # Both calls should use same configuration
+            assert mock_chat_class.call_count == 2
+            for call in mock_chat_class.call_args_list:
+                assert call[1]['api_key'] == "test_key"
 
 
-class TestAIServiceConfiguration:
-    """Test AI service configuration"""
+class TestAIServiceEdgeCases:
+    """Test edge cases and error scenarios"""
     
-    def test_ai_service_respects_settings(self):
-        """Test that AI service respects configuration settings"""
-        from backend.services.ai_service import AIService
-        from backend.config import settings
-        
+    @pytest.mark.asyncio
+    async def test_empty_message_handling(self):
+        """Test handling of empty messages"""
         service = AIService()
         
-        assert service.api_key == settings.openai_api_key
-        assert service.model == settings.default_ai_model
-        assert service.provider == settings.ai_provider
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Response")
+            mock_create.return_value = mock_chat
+            
+            response = await service.send_chat_message("session_id", "")
+            
+            assert response is not None
     
-    @patch("backend.config.settings")
-    def test_ai_service_with_custom_settings(self, mock_settings):
-        """Test AI service with custom settings"""
-        mock_settings.openai_api_key = "custom_key"
-        mock_settings.default_ai_model = "custom_model"
-        mock_settings.ai_provider = "custom_provider"
+    @pytest.mark.asyncio
+    async def test_very_long_message_handling(self):
+        """Test handling of very long messages"""
+        service = AIService()
+        long_message = "test " * 10000  # Very long message
         
-        from backend.services.ai_service import AIService
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Response")
+            mock_create.return_value = mock_chat
+            
+            response = await service.send_chat_message("session_id", long_message)
+            
+            assert response is not None
+    
+    @pytest.mark.asyncio
+    async def test_special_characters_in_message(self):
+        """Test handling of special characters"""
+        service = AIService()
+        special_message = "Test with émojis 🎉 and spëcial chârs"
+        
+        with patch.object(service, 'create_chat_session') as mock_create:
+            mock_chat = AsyncMock()
+            mock_chat.send_message = AsyncMock(return_value="Response")
+            mock_create.return_value = mock_chat
+            
+            response = await service.send_chat_message("session_id", special_message)
+            
+            assert response is not None
+    
+    @pytest.mark.asyncio
+    async def test_none_session_id_handling(self):
+        """Test handling of None session ID"""
         service = AIService()
         
-        assert service.api_key == "custom_key"
-        assert service.model == "custom_model"
-        assert service.provider == "custom_provider"
+        with patch('backend.services.ai_service.LlmChat') as mock_chat_class:
+            mock_chat = Mock()
+            mock_chat.with_model = Mock(return_value=mock_chat)
+            mock_chat.with_max_tokens = Mock(return_value=mock_chat)
+            mock_chat_class.return_value = mock_chat
+            
+            # Should handle None gracefully
+            chat = await service.create_chat_session(None)
+            assert chat is not None
