@@ -2,8 +2,9 @@
 Unit tests for backend/core/performance_optimizer.py
 Tests performance optimization, caching, and monitoring
 """
+import asyncio
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone, timedelta
 from collections import deque
 from backend.core.performance_optimizer import (
@@ -411,11 +412,12 @@ class TestPerformanceOptimizer:
     async def test_shutdown_optimizer(self, optimizer):
         """Test shutting down optimizer"""
         optimizer.running = True
-        optimizer.monitoring_task = AsyncMock()
-        
+        optimizer.monitoring_task = asyncio.get_running_loop().create_future()
+
         await optimizer.shutdown()
-        
+
         assert optimizer.running is False
+        assert optimizer.monitoring_task.cancelled()
     
     def test_global_performance_optimizer_instance(self):
         """Test global performance optimizer instance exists"""

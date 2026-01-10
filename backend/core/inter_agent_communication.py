@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import uuid
 from enum import Enum
 
-from agents.base_agent import BaseAgent, AgentCapability
+from backend.agents.base_agent import BaseAgent, AgentCapability
 
 logger = logging.getLogger(__name__)
 

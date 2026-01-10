@@ -4,6 +4,7 @@ OpenAI Vision AI Integration - Image Analysis
 import logging
 import os
 import base64
+import uuid
 from typing import Dict, Any, Optional
 from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, FileContentWithMimeType
 from datetime import datetime, timezone
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class VisionAIIntegration:
     def __init__(self):
-        self.api_key = os.getenv("EMERGENT_LLM_KEY", "sk-emergent-8A3Bc7c1f91F43cE8D")
+        self.api_key = os.getenv("EMERGENT_LLM_KEY", "sk-test-default-api-key")
     
     async def analyze_image(
         self,
@@ -23,7 +24,7 @@ class VisionAIIntegration:
         """Analyze an image using Vision AI"""
         try:
             # Create unique session for this analysis
-            session_id = f"vision_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            session_id = f"vision_{uuid.uuid4().hex}"
             
             # Initialize chat with vision model
             chat = LlmChat(

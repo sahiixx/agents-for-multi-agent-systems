@@ -12,8 +12,8 @@ import numpy as np
 from dataclasses import dataclass
 from enum import Enum
 
-from services.ai_service import AIService
-from database import get_database
+from backend.services.ai_service import AIService
+from backend.database import get_database
 
 logger = logging.getLogger(__name__)
 

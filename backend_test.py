@@ -5,7 +5,13 @@ Tests the AI Problem Analysis API and existing endpoints
 """
 
 import asyncio
-import aiohttp
+try:
+    import aiohttp
+except ModuleNotFoundError:  # pragma: no cover - exercised in runtime scripts
+    from backend._stubs import install as _install_backend_stubs
+
+    _install_backend_stubs()
+    import aiohttp
 import json
 import sys
 import os

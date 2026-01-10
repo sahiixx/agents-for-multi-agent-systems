@@ -13,7 +13,7 @@ import importlib
 import inspect
 from abc import ABC, abstractmethod
 
-from agents.base_agent import BaseAgent, AgentCapability
+from backend.agents.base_agent import BaseAgent, AgentCapability
 
 logger = logging.getLogger(__name__)
 
@@ -340,8 +340,8 @@ class PluginManager:
 {manifest['description']}
 """
 from typing import Dict, Any, List
-from core.plugin_manager import PluginInterface
-from agents.base_agent import AgentCapability
+from backend.core.plugin_manager import PluginInterface
+from backend.agents.base_agent import AgentCapability
 
 class {plugin_name.replace('_', '').title()}Plugin(PluginInterface):
     """

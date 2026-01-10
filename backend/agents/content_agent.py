@@ -4,7 +4,7 @@ Capabilities: Content generation, SEO optimization, multi-language support
 """
 from typing import Dict, Any, List
 from .base_agent import BaseAgent, AgentCapability
-from services.ai_service import AIService
+from backend.services.ai_service import AIService
 
 class ContentAgent(BaseAgent):
     """

@@ -14,7 +14,7 @@ from enum import Enum
 import psutil
 from collections import deque, defaultdict
 
-from database import get_database
+from backend.database import get_database
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,9 @@ class CacheManager:
             "sets": 0,
             "deletes": 0
         }
+        # In-memory store defaults so tests can call getters without initialize().
+        self.cache_store: Dict[str, Any] = {}
+        self.cache_ttl: Dict[str, datetime] = {}
         
     async def initialize(self):
         """Initialize Redis connection"""
@@ -213,7 +216,8 @@ class PerformanceOptimizer:
         self.running = False
         if self.monitoring_task:
             self.monitoring_task.cancel()
-            await asyncio.gather(self.monitoring_task, return_exceptions=True)
+            if hasattr(self.monitoring_task, "__await__"):
+                await asyncio.gather(self.monitoring_task, return_exceptions=True)
     
     async def record_metric(self, metric: PerformanceMetric):
         """Record a performance metric"""

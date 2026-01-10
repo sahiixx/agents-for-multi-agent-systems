@@ -1,62 +1,66 @@
-from pydantic_settings import BaseSettings
-from typing import List
+"""Runtime configuration utilities for the backend."""
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass, field
+from typing import List
 
-class Settings(BaseSettings):
-    # Database
-    mongo_url: str = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-    db_name: str = os.getenv("DB_NAME", "nowhere_digital")
-    
-    # Email Settings
-    sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")
-    sendgrid_from_email: str = os.getenv("SENDGRID_FROM_EMAIL", "noreply@nowheredigital.ae")
-    sender_email: str = os.getenv("SENDER_EMAIL", "hello@nowheredigital.ae")
-    admin_email: str = os.getenv("ADMIN_EMAIL", "admin@nowheredigital.ae")
-    
-    # AI Settings
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    default_ai_model: str = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
-    ai_provider: str = os.getenv("AI_PROVIDER", "openai")
-    emergent_llm_key: str = os.getenv("EMERGENT_LLM_KEY", "sk-emergent-8A3Bc7c1f91F43cE8D")
-    
-    # Payment Settings
-    stripe_api_key: str = os.getenv("STRIPE_API_KEY", "sk_test_emergent")
-    
-    # SMS Settings
-    twilio_account_sid: str = os.getenv("TWILIO_ACCOUNT_SID", "")
-    twilio_auth_token: str = os.getenv("TWILIO_AUTH_TOKEN", "")
-    twilio_verify_service: str = os.getenv("TWILIO_VERIFY_SERVICE", "")
-    twilio_phone_number: str = os.getenv("TWILIO_PHONE_NUMBER", "")
-    
-    # Security
-    jwt_secret: str = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() == "true"
+
+
+@dataclass
+class Settings:
+    """Lightweight settings container that reads from environment variables."""
+
+    mongo_url: str = field(default_factory=lambda: os.getenv("MONGO_URL", "mongodb://localhost:27017"))
+    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "nowhere_digital"))
+
+    sendgrid_api_key: str = field(default_factory=lambda: os.getenv("SENDGRID_API_KEY", ""))
+    sendgrid_from_email: str = field(default_factory=lambda: os.getenv("SENDGRID_FROM_EMAIL", "noreply@nowheredigital.ae"))
+    sender_email: str = field(default_factory=lambda: os.getenv("SENDER_EMAIL", "hello@nowheredigital.ae"))
+    admin_email: str = field(default_factory=lambda: os.getenv("ADMIN_EMAIL", "admin@nowheredigital.ae"))
+
+    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    default_ai_model: str = field(default_factory=lambda: os.getenv("DEFAULT_AI_MODEL", "gpt-4o"))
+    ai_provider: str = field(default_factory=lambda: os.getenv("AI_PROVIDER", "openai"))
+    emergent_llm_key: str = field(default_factory=lambda: os.getenv("EMERGENT_LLM_KEY", "sk-test-default-api-key"))
+
+    stripe_api_key: str = field(default_factory=lambda: os.getenv("STRIPE_API_KEY", "sk_test_stripe"))
+
+    twilio_account_sid: str = field(default_factory=lambda: os.getenv("TWILIO_ACCOUNT_SID", ""))
+    twilio_auth_token: str = field(default_factory=lambda: os.getenv("TWILIO_AUTH_TOKEN", ""))
+    twilio_verify_service: str = field(default_factory=lambda: os.getenv("TWILIO_VERIFY_SERVICE", ""))
+    twilio_phone_number: str = field(default_factory=lambda: os.getenv("TWILIO_PHONE_NUMBER", ""))
+
+    jwt_secret: str = field(default_factory=lambda: os.getenv("JWT_SECRET", "your-secret-key-change-in-production"))
     jwt_algorithm: str = "HS256"
-    jwt_expiration: int = 24 * 60 * 60  # 24 hours
-    
-    # CORS
-    cors_origins: List[str] = [
-        "http://localhost:3000",
-        "https://ai-business-os-1.preview.emergentagent.com"
-    ]
-    
-    # API Settings
-    api_prefix: str = "/api"
-    debug: bool = os.getenv("DEBUG", "false").lower() == "true"
-    
-    # File Upload
-    max_file_size: int = 10 * 1024 * 1024  # 10MB
-    allowed_file_types: List[str] = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
-    
-    # Rate Limiting
-    rate_limit_requests: int = 100
-    rate_limit_period: int = 60  # seconds
-    
-    # Email Templates
-    email_templates_dir: str = "email_templates"
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    jwt_expiration: int = 24 * 60 * 60
 
-# Create global settings instance
+    cors_origins: List[str] = field(default_factory=lambda: [
+        "http://localhost:3000",
+        "https://ai-business-os-1.preview.emergentagent.com",
+    ])
+
+    api_prefix: str = field(default_factory=lambda: os.getenv("API_PREFIX", "/api"))
+    debug: bool = field(default_factory=lambda: _env_flag("DEBUG", False))
+
+    max_file_size: int = 10 * 1024 * 1024
+    allowed_file_types: List[str] = field(default_factory=lambda: [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "application/pdf",
+    ])
+
+    rate_limit_requests: int = 100
+    rate_limit_period: int = 60
+
+    email_templates_dir: str = field(default_factory=lambda: os.getenv("EMAIL_TEMPLATES_DIR", "email_templates"))
+
+
 settings = Settings()

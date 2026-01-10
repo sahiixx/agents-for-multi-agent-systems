@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class VoiceAIIntegration:
     def __init__(self):
-        self.api_key = os.getenv("EMERGENT_LLM_KEY", "sk-emergent-8A3Bc7c1f91F43cE8D")
+        self.api_key = os.getenv("EMERGENT_LLM_KEY", "sk-test-default-key")
         self.realtime_chat = None
     
     def get_realtime_client(self):
